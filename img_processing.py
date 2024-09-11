@@ -80,7 +80,7 @@ data_transform = albumentations.Compose([
 
     ])
 def data_Augmentation():
-    path = r"D:\DR\github\deep-learning-for-image-processing\data_set\dr4\class3\*.jpg"
+    path = 
 
     for i, image_path in enumerate(glob.glob(path)):
         print("正在处理", i+1)
@@ -90,7 +90,7 @@ def data_Augmentation():
         img_name = os.path.basename(image_path)
         name_without_ext = os.path.splitext(img_name)[0]
         re_name = name_without_ext+'-2'
-        save_path = os.path.join(r'D:\DR\github\deep-learning-for-image-processing\data_set\dr4\class3', img_name)
+        save_path = os.path.join(r'', img_name)
         save_path = save_path.replace(name_without_ext, re_name)
         cv2.imwrite(save_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     print("over done")
@@ -111,8 +111,8 @@ single_transform = albumentations.Compose([
     ])
 
 def data_Augmentation_single():
-    # path = r"D:\DR\github\deep-learning-for-image-processing\data_set\dr4\class3\*.jpg"
-    path = r"D:\DR\DDR_processed\newlabels\DDR_1\0_images\20170504101207303.jpg"
+
+    path = 
 
     image = cv2.imread(path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
