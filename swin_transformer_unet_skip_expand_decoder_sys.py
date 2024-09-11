@@ -5,22 +5,7 @@ from einops import rearrange
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 
-class Mlp(nn.Module):
-    # def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
-    #     super().__init__()
-    #     out_features = out_features or in_features
-    #     hidden_features = hidden_features or in_features
-    #     self.fc1 = nn.Linear(in_features, hidden_features)
-    #     self.act = act_layer()
-    #     self.fc2 = nn.Linear(hidden_features, out_features)
-    #     self.drop = nn.Dropout(drop)
-    # def forward(self, x):
-    #     x = self.fc1(x)
-    #     x = self.act(x)
-    #     x = self.drop(x)
-    #     x = self.fc2(x)
-    #     x = self.drop(x)
-    #     return x
+class RMP(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
@@ -47,14 +32,7 @@ class Mlp(nn.Module):
 
 
 def window_partition(x, window_size):
-    """
-    Args:
-        x: (B, H, W, C)
-        window_size (int): window size
 
-    Returns:
-        windows: (num_windows*B, window_size, window_size, C)
-    """
     B, H, W, C = x.shape
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
@@ -62,16 +40,7 @@ def window_partition(x, window_size):
 
 
 def window_reverse(windows, window_size, H, W):
-    """
-    Args:
-        windows: (num_windows*B, window_size, window_size, C)
-        window_size (int): Window size
-        H (int): Height of image
-        W (int): Width of image
 
-    Returns:
-        x: (B, H, W, C)
-    """
     B = int(windows.shape[0] / (H * W / window_size / window_size))
     x = windows.view(B, H // window_size, W // window_size, window_size, window_size, -1)
     x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
@@ -79,18 +48,7 @@ def window_reverse(windows, window_size, H, W):
 
 
 class WindowAttention(nn.Module):
-    r""" Window based multi-head self attention (W-MSA) module with relative position bias.
-    It supports both of shifted and non-shifted window.
 
-    Args:
-        dim (int): Number of input channels.
-        window_size (tuple[int]): The height and width of the window.
-        num_heads (int): Number of attention heads.
-        qkv_bias (bool, optional):  If True, add a learnable bias to query, key, value. Default: True
-        qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set
-        attn_drop (float, optional): Dropout ratio of attention weight. Default: 0.0
-        proj_drop (float, optional): Dropout ratio of output. Default: 0.0
-    """
 
     def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0.):
 
@@ -177,26 +135,9 @@ class WindowAttention(nn.Module):
 
 
 class SwinTransformerBlock(nn.Module):
-    r""" Swin Transformer Block.
-
-    Args:
-        dim (int): Number of input channels.
-        input_resolution (tuple[int]): Input resulotion.
-        num_heads (int): Number of attention heads.
-        window_size (int): Window size.
-        shift_size (int): Shift size for SW-MSA.
-        mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
-        qkv_bias (bool, optional): If True, add a learnable bias to query, key, value. Default: True
-        qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set.
-        drop (float, optional): Dropout rate. Default: 0.0
-        attn_drop (float, optional): Attention dropout rate. Default: 0.0
-        drop_path (float, optional): Stochastic depth rate. Default: 0.0
-        act_layer (nn.Module, optional): Activation layer. Default: nn.GELU
-        norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
-    """
 
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0,
-                 mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
+                 RMP_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
                  act_layer=nn.GELU, norm_layer=nn.LayerNorm):
         super().__init__()
         self.dim = dim
@@ -204,7 +145,7 @@ class SwinTransformerBlock(nn.Module):
         self.num_heads = num_heads
         self.window_size = window_size
         self.shift_size = shift_size
-        self.mlp_ratio = mlp_ratio
+        self.RMP_ratio = RMP_ratio
         if min(self.input_resolution) <= self.window_size:
             # if window size is larger than input resolution, we don't partition windows
             self.shift_size = 0
@@ -218,8 +159,8 @@ class SwinTransformerBlock(nn.Module):
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
-        mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        RMP_hidden_dim = int(dim * RMP_ratio)
+        self.RMP = RMP(in_features=dim, hidden_features=RMP_hidden_dim, act_layer=act_layer, drop=drop)
 
         if self.shift_size > 0:
             # calculate attention mask for SW-MSA
@@ -281,13 +222,13 @@ class SwinTransformerBlock(nn.Module):
 
         # FFN
         x = shortcut + self.drop_path(x)
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
+        x = x + self.drop_path(self.RMP(self.norm2(x)))
 
         return x
 
     def extra_repr(self) -> str:
         return f"dim={self.dim}, input_resolution={self.input_resolution}, num_heads={self.num_heads}, " \
-               f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
+               f"window_size={self.window_size}, shift_size={self.shift_size}, RMP_ratio={self.RMP_ratio}"
 
     def flops(self):
         flops = 0
@@ -297,8 +238,8 @@ class SwinTransformerBlock(nn.Module):
         # W-MSA/SW-MSA
         nW = H * W / self.window_size / self.window_size
         flops += nW * self.attn.flops(self.window_size * self.window_size)
-        # mlp
-        flops += 2 * H * W * self.dim * self.dim * self.mlp_ratio
+        # RMP
+        flops += 2 * H * W * self.dim * self.dim * self.RMP_ratio
         # norm2
         flops += self.dim * H * W
         return flops
@@ -411,7 +352,7 @@ class BasicLayer(nn.Module):
         depth (int): Number of blocks.
         num_heads (int): Number of attention heads.
         window_size (int): Local window size.
-        mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
+        RMP_ratio (float): Ratio of RMP hidden dim to embedding dim.
         qkv_bias (bool, optional): If True, add a learnable bias to query, key, value. Default: True
         qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set.
         drop (float, optional): Dropout rate. Default: 0.0
@@ -423,7 +364,7 @@ class BasicLayer(nn.Module):
     """
 
     def __init__(self, dim, input_resolution, depth, num_heads, window_size,
-                 mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
+                 RMP_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., norm_layer=nn.LayerNorm, downsample=None, use_checkpoint=False):
 
         super().__init__()
@@ -437,7 +378,7 @@ class BasicLayer(nn.Module):
             SwinTransformerBlock(dim=dim, input_resolution=input_resolution,
                                  num_heads=num_heads, window_size=window_size,
                                  shift_size=0 if (i % 2 == 0) else window_size // 2,
-                                 mlp_ratio=mlp_ratio,
+                                 RMP_ratio=RMP_ratio,
                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
                                  drop=drop, attn_drop=attn_drop,
                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
@@ -480,7 +421,7 @@ class BasicLayer_up(nn.Module):
         depth (int): Number of blocks.
         num_heads (int): Number of attention heads.
         window_size (int): Local window size.
-        mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
+        RMP_ratio (float): Ratio of RMP hidden dim to embedding dim.
         qkv_bias (bool, optional): If True, add a learnable bias to query, key, value. Default: True
         qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set.
         drop (float, optional): Dropout rate. Default: 0.0
@@ -492,7 +433,7 @@ class BasicLayer_up(nn.Module):
     """
 
     def __init__(self, dim, input_resolution, depth, num_heads, window_size,
-                 mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
+                 RMP_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., norm_layer=nn.LayerNorm, upsample=None, use_checkpoint=False):
 
         super().__init__()
@@ -506,7 +447,7 @@ class BasicLayer_up(nn.Module):
             SwinTransformerBlock(dim=dim, input_resolution=input_resolution,
                                  num_heads=num_heads, window_size=window_size,
                                  shift_size=0 if (i % 2 == 0) else window_size // 2,
-                                 mlp_ratio=mlp_ratio,
+                                 RMP_ratio=RMP_ratio,
                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
                                  drop=drop, attn_drop=attn_drop,
                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
@@ -591,7 +532,7 @@ class SwinTransformerSys(nn.Module):
         depths (tuple(int)): Depth of each Swin Transformer layer.
         num_heads (tuple(int)): Number of attention heads in different layers.
         window_size (int): Window size. Default: 7
-        mlp_ratio (float): Ratio of mlp hidden dim to embedding dim. Default: 4
+        RMP_ratio (float): Ratio of RMP hidden dim to embedding dim. Default: 4
         qkv_bias (bool): If True, add a learnable bias to query, key, value. Default: True
         qk_scale (float): Override default qk scale of head_dim ** -0.5 if set. Default: None
         drop_rate (float): Dropout rate. Default: 0
@@ -605,7 +546,7 @@ class SwinTransformerSys(nn.Module):
 
     def __init__(self, img_size=224, patch_size=4, in_chans=3, num_classes=1000,
                  embed_dim=96, depths=[2, 2, 2, 2], depths_decoder=[1, 2, 2, 2], num_heads=[3, 6, 12, 24],
-                 window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
+                 window_size=7, RMP_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
                  norm_layer=nn.LayerNorm, ape=False, patch_norm=True,
                  use_checkpoint=False, final_upsample="expand_first", **kwargs):
@@ -621,7 +562,7 @@ class SwinTransformerSys(nn.Module):
         self.patch_norm = patch_norm
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.num_features_up = int(embed_dim * 2)
-        self.mlp_ratio = mlp_ratio
+        self.RMP_ratio = RMP_ratio
         self.final_upsample = final_upsample
 
         # split image into non-overlapping patches
@@ -651,7 +592,7 @@ class SwinTransformerSys(nn.Module):
                                depth=depths[i_layer],
                                num_heads=num_heads[i_layer],
                                window_size=window_size,
-                               mlp_ratio=self.mlp_ratio,
+                               RMP_ratio=self.RMP_ratio,
                                qkv_bias=qkv_bias, qk_scale=qk_scale,
                                drop=drop_rate, attn_drop=attn_drop_rate,
                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
@@ -676,7 +617,7 @@ class SwinTransformerSys(nn.Module):
                                 depth=depths[(self.num_layers-1-i_layer)],
                                 num_heads=num_heads[(self.num_layers-1-i_layer)],
                                 window_size=window_size,
-                                mlp_ratio=self.mlp_ratio,
+                                RMP_ratio=self.RMP_ratio,
                                 qkv_bias=qkv_bias, qk_scale=qk_scale,
                                 drop=drop_rate, attn_drop=attn_drop_rate,
                                 drop_path=dpr[sum(depths[:(self.num_layers-1-i_layer)]):sum(depths[:(self.num_layers-1-i_layer) + 1])],
