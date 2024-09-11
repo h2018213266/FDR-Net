@@ -9,39 +9,35 @@ def mk_file(file_path: str):
         rmtree(file_path)
     os.makedirs(file_path)
 
-
 def main():
     # 保证随机可复现
     random.seed(0)
-
     # 将数据集中10%的数据划分到验证集中
     split_rate = 0.1
-
-    # 指向你解压后的flower_photos文件夹
     cwd = os.getcwd()
-    data_root = os.path.join(cwd, "flower_data")
-    origin_flower_path = os.path.join(data_root, "flower_photos")
-    assert os.path.exists(origin_flower_path), "path '{}' does not exist.".format(origin_flower_path)
+    data_root = os.path.join(cwd, "")
+    origin_f_path = os.path.join(data_root, "")
+    assert os.path.exists(origin__path), "path '{}' does not exist.".format(origin__path)
 
-    flower_class = [cla for cla in os.listdir(origin_flower_path)
-                    if os.path.isdir(os.path.join(origin_flower_path, cla))]
+    _class = [cla for cla in os.listdir(origin__path)
+                    if os.path.isdir(os.path.join(origin__path, cla))]
 
     # 建立保存训练集的文件夹
     train_root = os.path.join(data_root, "train")
     mk_file(train_root)
-    for cla in flower_class:
+    for cla in _class:
         # 建立每个类别对应的文件夹
         mk_file(os.path.join(train_root, cla))
 
     # 建立保存验证集的文件夹
     val_root = os.path.join(data_root, "val")
     mk_file(val_root)
-    for cla in flower_class:
+    for cla in _class:
         # 建立每个类别对应的文件夹
         mk_file(os.path.join(val_root, cla))
 
-    for cla in flower_class:
-        cla_path = os.path.join(origin_flower_path, cla)
+    for cla in _class:
+        cla_path = os.path.join(origin__path, cla)
         images = os.listdir(cla_path)
         num = len(images)
         # 随机采样验证集的索引
