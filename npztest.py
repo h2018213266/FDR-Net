@@ -37,8 +37,8 @@ def npz():
     path = r"D:\DR\DDR_processed\images\*.jpg"
     # path = r"D:\DR\seg\seg_done\images\*.jpg"
     # 项目中存放训练所用的npz文件路径
-    path2 = r'D:\DR\github\Swin-Unet\data\Synapse\train_npz\\'
-    # path2 = r'D:\DR\github\Swin-Unet\data\Synapse\test_vol_h5\\'
+    path2 = r'train_npz\\'
+
     for i, img_path in enumerate(glob.glob(path)):
         # 读入标签
         label_path = img_path.replace('images', 'labels\\HE')   # EX HE MA SE \\ R G B Y
@@ -78,11 +78,9 @@ def npz():
 # 生成npz文件对应的txt文件
 def write_name():
     # npz文件路径 训练
-    files = glob.glob(r'D:\DR\github\Swin-Unet\data\Synapse\train_npz\*.npz')
-    f = open(r'D:\DR\github\Swin-Unet\lists\lists_Synapse\train.txt','w')
+    files = glob.glob(r'\train_npz\*.npz')
+    f = open(r'\lists\lists_Synapse\train.txt','w')
     # 测试
-    # files = glob.glob(r'D:\DR\github\Swin-Unet\data\Synapse\test_vol_h5\*.npz')
-    # f = open(r'D:\DR\github\Swin-Unet\lists\lists_Synapse\test_vol.txt', 'w')   # txt文件路径
     for i in files:
         name = i.split('\\')[-1]
         # print(name)   007-6926-400.npz
@@ -232,9 +230,7 @@ def normal_Color():
 
 # 转换回原图像
 def restore_Color():
-    modified_folder = r"D:\mycode\Swin-Unet\output\predictions\*.tif"
-    # modified_folder = r"D:\DR\github\Swin-Unet\output\predictions\*.tif"
-    # modified_folder = r"D:\DR\DDR_processed\labels_color\ALL2\*.tif"
+    modified_folder = r"\output\predictions\*.tif"
     for i, modified_path in enumerate(glob.glob(modified_folder)):
         modified_image = Image.open(modified_path).convert('RGBA')
         np_modified_image = np.array(modified_image)
@@ -267,9 +263,9 @@ def restore_Color():
 # npz2 product（RGB图像）
 def npz2():
     # 图片路径
-    path = r"D:\DR\DDR_processed\images\*.jpg"
-    # path2 = r'D:\DR\github\Swin-Unet\data\Synapse\train_npz\\'
-    path2 = r'D:\DR\github\Swin-Unet\data\Synapse\test_vol_h5\\'
+    path = r"processed\images\*.jpg"
+
+    path2 = r'\data\Synapse\test_vol_h5\\'
     for i, img_path in enumerate(glob.glob(path)):
         label_path = img_path.replace('images', 'labels_color\\ALL2')  # EX HE MA SE
         label_path = label_path.replace('jpg', 'tif')
@@ -308,7 +304,7 @@ test2_transform = albumentations.Compose({
 # 使用albumentations库对图片和对应标签作修改
 def test2():
     # image_path = r"D:\DR\seg\images\007-4847-300.jpg"
-    image_path = r"D:\DR\github\deep-learning-for-image-processing\data_set\dr\PDR\007-3322-200.jpg"
+    image_path = r"\data_set\dr\PDR\007-3322-200.jpg"
     label_path = r"D:\DR\seg\labels\007-4847-300.tif"
     image = cv2.imread(image_path)
     # label = cv2.imread(label_path)
